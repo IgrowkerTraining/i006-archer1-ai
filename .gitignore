@@ -1,0 +1,142 @@
+# Virtual environments
+*venv/
+*env/
+ENV/
+.venv/
+.ENV/
+
+# uv package manager
+.uv-cache/
+
+# Python compiled files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.pytest_cache/
+.coverage
+.mypy_cache/
+.hypothesis/
+.tox/
+
+# Environment files (keep env.example)
+.env
+.env.*
+!.env.example
+.env.local
+.env.production
+.env.production.local
+.env.test
+.env.test.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.desktop.ini
+
+# Logs and runtime files
+*.log
+*.out
+*.bin
+logs/
+
+# Database files
+*.db
+*.sqlite3
+*.sqlite
+
+# Dependency lock files
+Pipfile.lock
+poetry.lock
+uv.lock
+
+# Cache and temporary files
+.cache/
+*.tmp
+*.temp
+*.pid
+*.seed
+*.pid.lock
+
+# Static and media files
+staticfiles/
+media/
+uploads/
+
+# Node.js (if used)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.yarn-integrity
+
+# Security and secrets
+secrets.json
+.secret_key
+*.pem
+*.key
+*.crt
+*.p12
+
+# Testing
+.coverage.*
+htmlcov/
+.pytest_cache/
+test-results/
+coverage.xml
+
+# Build and distribution
+build/
+dist/
+*.egg-info/
+*.whl
+*.tar.gz
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile
+
+# PEP 582
+__pypackages__/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# Backup files
+*.bak
+*.backup
+*.old
