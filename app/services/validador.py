@@ -1,6 +1,5 @@
-"""Validador de respuestas IA para resúmenes agrícolas."""
+"""Validador de respuestas IA para resúmenes agrícolas (modo texto narrativo)."""
 
-import json
 import re
 from typing import Tuple, Union
 
@@ -8,87 +7,72 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Frases prescriptivas prohibidas (case-insensitive)
+# Frases prescriptivas que la IA no debe usar
 FRASES_PROHIBIDAS = [
-    r"se\s+recomienda",
-    r"se\s+sugiere",
-    r"es\s+aconsejable",
-    r"deber[íi]a",
-    r"se\s+aconseja",
-    r"conviene\s+que",
-    r"ser[íi]a\s+conveniente",
-    r"habr[íi]a\s+que",
-    r"es\s+necesario\s+que",
-    r"se\s+debe",
-    r"recomendamos",
-    r"sugerimos",
-    r"aconsejamos",
+    r"\bse recomienda\b",
+    r"\bse sugiere\b",
+    r"\bdebería\b",
+    r"\bdeberían\b",
+    r"\bes aconsejable\b",
+    r"\bse aconseja\b",
+    r"\bconviene que\b",
+    r"\bsería recomendable\b",
+    r"\bsería conveniente\b",
+    r"\bhabría que\b",
+    r"\bse debe\b",
+    r"\brecomendamos\b",
+    r"\bsugerimos\b",
+    r"\baconsejamos\b",
 ]
 
-# Compilar regex una sola vez
-_PATRON_PROHIBIDO = re.compile(
-    "|".join(FRASES_PROHIBIDAS), re.IGNORECASE
-)
+_PATRON_PROHIBIDO = re.compile("|".join(FRASES_PROHIBIDAS), re.IGNORECASE)
+
+# Límites de longitud
+MIN_LENGTH = 100
+MAX_LENGTH = 15000
 
 
-def _extraer_json(texto: str) -> str:
-    """
-    Extract JSON content from text that may be wrapped in markdown
-    code blocks (```json ... ```) or contain leading/trailing text.
-    """
-    # Try extracting from ```json ... ``` block
-    match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", texto, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-
-    # Try extracting first { ... } block
-    match = re.search(r"\{.*\}", texto, re.DOTALL)
-    if match:
-        return match.group(0).strip()
-
-    # Return as-is and let JSON parse fail with clear error
-    return texto.strip()
-
-
-def validar_respuesta_ia(respuesta_texto: str) -> Tuple[bool, Union[dict, str]]:
-    """
-    Validate an IA response for summary generation.
-
-    Returns:
-        (True, parsed_dict) if valid
-        (False, error_message) if invalid
-    """
+def validar_respuesta_ia(respuesta_texto: str) -> Tuple[bool, Union[str, str]]:
+    # Valida que la respuesta sea texto narrativo válido
     if not respuesta_texto or not respuesta_texto.strip():
-        return False, "La respuesta de la IA está vacía"
+        return False, "La respuesta de la IA está vacía."
 
-    # 1. Try to parse as JSON
-    texto_limpio = _extraer_json(respuesta_texto)
-    try:
-        datos = json.loads(texto_limpio)
-    except json.JSONDecodeError as e:
-        logger.warning(f"Respuesta IA no es JSON válido: {e}")
-        # If it's not JSON, treat the raw text as the summary content
-        datos = {"resumen_texto": respuesta_texto.strip()}
+    texto = respuesta_texto.strip()
 
-    # 2. Check for prescriptive/recommendation language
-    texto_completo = (
-        json.dumps(datos, ensure_ascii=False)
-        if isinstance(datos, dict)
-        else str(datos)
-    )
-    match = _PATRON_PROHIBIDO.search(texto_completo)
+    # Si la IA devolvió JSON en vez de texto narrativo, intentar extraer
+    if texto.startswith("{") and texto.endswith("}"):
+        try:
+            import json
+            parsed = json.loads(texto)
+            for key in ["resumen_descriptivo", "resumen_texto", "resumen", "texto", "contenido"]:
+                if key in parsed and isinstance(parsed[key], str) and len(parsed[key]) > MIN_LENGTH:
+                    texto = parsed[key]
+                    logger.info(f"Texto extraído del campo JSON '{key}'")
+                    break
+            else:
+                return False, "La IA devolvió JSON en lugar de texto narrativo."
+        except (json.JSONDecodeError, Exception):
+            return False, "La IA devolvió formato no reconocido."
+
+    # Longitud mínima
+    if len(texto) < MIN_LENGTH:
+        return False, f"Resumen demasiado corto ({len(texto)} chars, mínimo {MIN_LENGTH})."
+
+    # Truncar si excede máximo
+    if len(texto) > MAX_LENGTH:
+        texto = texto[:MAX_LENGTH]
+
+    # Detectar lenguaje prescriptivo
+    match = _PATRON_PROHIBIDO.search(texto.lower())
     if match:
-        frase = match.group(0)
-        msg = (
-            f"La respuesta contiene lenguaje prescriptivo prohibido: "
-            f"'{frase}'. El resumen debe ser descriptivo, no prescriptivo."
+        return False, (
+            f"El resumen contiene lenguaje prescriptivo: '{match.group(0)}'. "
+            f"Debe ser descriptivo, no prescriptivo."
         )
-        logger.warning(msg)
-        return False, msg
 
-    # 3. Ensure it's a dict (not a list or primitive)
-    if not isinstance(datos, dict):
-        return False, f"Se esperaba un objeto JSON, se recibió {type(datos).__name__}"
+    # Limpiar artefactos de markdown
+    texto = re.sub(r"^#{1,6}\s+", "", texto, flags=re.MULTILINE)
+    texto = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", texto)
 
-    logger.info("Respuesta IA validada correctamente")
-    return True, datos
+    logger.info(f"Respuesta validada ({len(texto)} chars)")
+    return True, texto

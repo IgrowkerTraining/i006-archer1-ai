@@ -58,20 +58,12 @@ app.include_router(api_router)
 
 @app.get("/", response_model=RootResponse)
 async def read_root():
-    """Root endpoint with basic information."""
     return RootResponse(
         message=f"Welcome to {settings.app_name}",
         version=settings.app_version,
         docs="/docs",
         health="/api/v1/health"
     )
-
-
-# Legacy endpoint for backward compatibility
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, q: str | None = None):
-    """Example endpoint from original template."""
-    return {"item_id": item_id, "q": q}
 
 
 if __name__ == "__main__":

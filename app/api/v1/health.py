@@ -5,9 +5,6 @@ from datetime import datetime
 
 from app.models.schemas import HealthResponse
 from app.config.settings import settings
-from app.core.logging import get_logger
-
-logger = get_logger(__name__)
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -23,5 +20,5 @@ async def health_check():
         status="healthy",
         timestamp=datetime.now(),
         version=settings.app_version,
-        message="Service is running normally"
+        message="Service is running normally",
     )

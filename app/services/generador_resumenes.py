@@ -250,7 +250,7 @@ async def generar_resumen_mensual(
             "id": None,
         }
 
-    # 5. Validate response (now validates narrative text, not JSON)
+    # 5. Validate response (validates narrative text)
     valido, resultado_validacion = validar_respuesta_ia(respuesta_texto)
 
     if not valido:
@@ -274,6 +274,9 @@ async def generar_resumen_mensual(
             "id": None,
         }
 
+    # resultado_validacion is the cleaned text when valid
+    texto_limpio = resultado_validacion
+
     # 6. Save successful summary
     resumen_id = None
     try:
@@ -281,7 +284,7 @@ async def generar_resumen_mensual(
             explotacion_id=explotacion_id,
             mes=mes,
             anio=anio,
-            resumen_json={"resumen_texto": respuesta_texto},
+            resumen_json={"resumen_texto": texto_limpio},
             modelo=modelo,
             exitoso=True,
         )
@@ -296,7 +299,7 @@ async def generar_resumen_mensual(
 
     return {
         "exitoso": True,
-        "resumen": respuesta_texto,
+        "resumen": texto_limpio,
         "error": None,
         "modelo": modelo,
         "latencia": latencia,
