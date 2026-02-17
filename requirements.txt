@@ -5,6 +5,7 @@ pydantic-settings==2.1.0
 httpx==0.25.2
 python-dotenv==1.0.0
 passlib[bcrypt]==1.7.4
+supabase>=2.0.0
 
 # Note: This project supports both pip and uv package managers
 # To use uv, install it first: pip install uv

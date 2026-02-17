@@ -21,6 +21,11 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    logger.info(f"Default AI model: {settings.default_ai_model}")
+    if settings.supabase_url:
+        logger.info(f"Supabase URL: {settings.supabase_url[:30]}...")
+    else:
+        logger.warning("Supabase not configured — resúmenes IA will fail")
     yield
     # Shutdown
     await ai_service.close()
@@ -53,20 +58,12 @@ app.include_router(api_router)
 
 @app.get("/", response_model=RootResponse)
 async def read_root():
-    """Root endpoint with basic information."""
     return RootResponse(
         message=f"Welcome to {settings.app_name}",
         version=settings.app_version,
         docs="/docs",
         health="/api/v1/health"
     )
-
-
-# Legacy endpoint for backward compatibility
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, q: str | None = None):
-    """Example endpoint from original template."""
-    return {"item_id": item_id, "q": q}
 
 
 if __name__ == "__main__":

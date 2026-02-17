@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     # OpenRouter Configuration
     openrouter_api_key: str
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    default_ai_model: str = "stepfun/step-3.5-flash:free"
+    ai_request_timeout: float = 30.0
+    
+    # Supabase Configuration
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
     
     # API Configuration
     api_host: str = "0.0.0.0"
