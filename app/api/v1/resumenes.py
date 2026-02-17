@@ -21,10 +21,8 @@ router = APIRouter(prefix="/ia", tags=["ia-resumenes"])
 @router.post("/resumen-mensual", response_model=ResumenResponse)
 async def crear_resumen_mensual(request: ResumenRequest):
     """
-    Generate a monthly descriptive summary from agricultural activities.
-
-    Receives exploitation data + activities list, calls OpenRouter AI,
-    validates the response, stores it in Supabase and returns the result.
+    Generar un resumen descriptivo mensual a partir de actividades agrícolas.
+Recibe datos de la explotación + lista de actividades, llama al AI de OpenRouter, valida la respuesta, la almacena en Supabase y devuelve el resultado.
     """
     logger.info(
         f"POST /ia/resumen-mensual — explotacion={request.explotacion_id} "
@@ -32,7 +30,7 @@ async def crear_resumen_mensual(request: ResumenRequest):
         f"actividades={len(request.actividades)}"
     )
 
-    # Convert Pydantic models to dicts for the generator
+    # Convertir modelos Pydantic a diccionarios para el generador
     actividades_dict = [act.model_dump(exclude_none=True) for act in request.actividades]
 
     try:
@@ -51,7 +49,7 @@ async def crear_resumen_mensual(request: ResumenRequest):
 
     if not resultado["exitoso"]:
         logger.warning(f"Resumen no exitoso: {resultado['error']}")
-        # Still return a response with exitoso=False so the caller knows
+        # Devolver igualmente una respuesta con exitoso=False para que el llamante lo sepa
         return ResumenResponse(
             id=None,
             explotacion_id=request.explotacion_id,
@@ -82,9 +80,8 @@ async def obtener_resumenes(
     anio: Optional[int] = Query(default=None, ge=2000, le=2100, description="Filtrar por año"),
 ):
     """
-    Retrieve stored summaries for a given exploitation.
-
-    Optionally filter by month and/or year.
+    Recuperar resúmenes almacenados para una explotación dada.
+Opcionalmente filtrar por mes y/o año.
     """
     logger.info(
         f"GET /ia/resumenes/{explotacion_id} — mes={mes}, anio={anio}"

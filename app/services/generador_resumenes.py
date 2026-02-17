@@ -19,11 +19,11 @@ MESES_ES = {
 
 
 def _formatear_actividades(actividades: List[Dict]) -> str:
-    """Format activities list into a readable chronological string."""
+    """Formatea la lista de actividades en una cadena legible y cronológica."""
     if not actividades:
         return "No se registraron actividades en este período."
 
-    # Sort by date if available
+    # Ordenar por fecha si está disponible
     try:
         actividades_sorted = sorted(
             actividades,
@@ -79,7 +79,7 @@ def _formatear_actividades(actividades: List[Dict]) -> str:
 
 
 def _extraer_observaciones(actividades: List[Dict]) -> str:
-    """Extract technical observations from activities."""
+    """Extrae observaciones técnicas de las actividades."""
     obs = []
     for act in actividades:
         observacion = act.get("observacion_tecnica") or act.get("observaciones_tecnico")
@@ -105,15 +105,15 @@ def construir_prompt(
     titular: str = "",
     tecnico: Optional[str] = None,
 ) -> str:
-    """Build the prompt for summary generation."""
+    """Construye el prompt para la generación del resumen."""
     nombre_mes = MESES_ES.get(mes, str(mes))
     actividades_fmt = _formatear_actividades(actividades)
     observaciones = _extraer_observaciones(actividades)
 
-    # Determine first and last day of the month
+    # Determinar primer y último día del mes
     total = len(actividades)
 
-    # Extract unique responsables
+    # Extraer responsables únicos
     responsables = set()
     for act in actividades:
         if act.get("responsable"):
@@ -188,17 +188,17 @@ async def generar_resumen_mensual(
     tecnico: Optional[str] = None,
 ) -> dict:
     """
-    Generate a monthly summary for a given exploitation.
+    Genera un resumen mensual para una explotación dada.
 
-    Returns dict with keys:
-      - exitoso (bool)
-      - resumen (str | None)  — texto narrativo
-      - error (str | None)
-      - modelo (str)
-      - latencia (float)
-      - id (str | None)
-    """
-    # 1. Build the prompt
+        Devuelve un dict con claves:
+            - exitoso (bool)
+            - resumen (str | None)  — texto narrativo
+            - error (str | None)
+            - modelo (str)
+            - latencia (float)
+            - id (str | None)
+        """
+    # 1. Construir el prompt
     prompt = construir_prompt(
         explotacion_id=explotacion_id,
         mes=mes,
@@ -209,7 +209,7 @@ async def generar_resumen_mensual(
         tecnico=tecnico,
     )
 
-    # 2. Call AI service
+    # 2. Llamar al servicio de IA
     resultado_ia = await ai_service.generar_respuesta(prompt)
 
     respuesta_texto = resultado_ia["respuesta"]
@@ -217,7 +217,7 @@ async def generar_resumen_mensual(
     modelo = resultado_ia["modelo"]
     error_ia = resultado_ia["error"]
 
-    # 3. Log the request/response in Supabase
+    # 3. Registrar la petición/respuesta en Supabase
     try:
         supabase_service.guardar_log(
             peticion=prompt[:5000],
@@ -228,7 +228,7 @@ async def generar_resumen_mensual(
     except Exception as log_err:
         logger.warning(f"No se pudo guardar log IA: {log_err}")
 
-    # 4. Handle AI error
+    # 4. Manejar error de la IA
     if error_ia:
         try:
             supabase_service.guardar_resumen(
@@ -250,7 +250,7 @@ async def generar_resumen_mensual(
             "id": None,
         }
 
-    # 5. Validate response (validates narrative text)
+    # 5. Validar la respuesta (valida texto narrativo)
     valido, resultado_validacion = validar_respuesta_ia(respuesta_texto)
 
     if not valido:
@@ -274,10 +274,10 @@ async def generar_resumen_mensual(
             "id": None,
         }
 
-    # resultado_validacion is the cleaned text when valid
+    # resultado_validacion es el texto limpio cuando es válido
     texto_limpio = resultado_validacion
 
-    # 6. Save successful summary
+    # 6. Guardar resumen exitoso
     resumen_id = None
     try:
         guardado = supabase_service.guardar_resumen(

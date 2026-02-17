@@ -10,15 +10,15 @@ logger = get_logger(__name__)
 
 
 class SupabaseService:
-    """Service for interacting with Supabase (BD IA separada)."""
+    """Servicio para interactuar con la base de datos de Supabase (IA)."""
 
     def __init__(self):
-        """Initialize the Supabase client."""
+        """Inicializa el cliente de Supabase."""
         self._client: Optional[Client] = None
 
     @property
     def client(self) -> Client:
-        """Lazy initialization of Supabase client."""
+        """Inicialización perezosa del cliente de Supabase."""
         if self._client is None:
             if not settings.supabase_url or not settings.supabase_anon_key:
                 raise RuntimeError(
@@ -43,7 +43,7 @@ class SupabaseService:
         modelo: str,
         exitoso: bool,
     ) -> dict:
-        """Save a generated summary to the resumenes_generados table."""
+        """Guarda un resumen generado en la tabla resumenes_generados."""
         payload = {
             "explotacion_id": explotacion_id,
             "mes": mes,
@@ -73,7 +73,7 @@ class SupabaseService:
         mes: Optional[int] = None,
         anio: Optional[int] = None,
     ) -> list[dict]:
-        """Retrieve summaries for a given exploitation, optionally filtered."""
+        """Obtiene resúmenes para una explotación dada, opcionalmente filtrados por mes y año."""
         try:
             query = (
                 self.client.table("resumenes_generados")
@@ -105,7 +105,7 @@ class SupabaseService:
         error: Optional[str],
         latencia: float,
     ) -> None:
-        """Log an IA request/response pair."""
+        """Registra un par de petición/respuesta de IA."""
         payload = {
             "peticion": peticion[:10000],       # truncate for safety
             "respuesta": respuesta[:10000],
@@ -116,9 +116,9 @@ class SupabaseService:
             self.client.table("logs_ia").insert(payload).execute()
             logger.debug(f"Log IA guardado (latencia={latencia}s)")
         except Exception as e:
-            # Logging failures should NOT break the main flow
+            # Fallos en el logging NO deben interrumpir el flujo principal
             logger.warning(f"No se pudo guardar log IA en Supabase: {e}")
 
 
-# Global instance
+# Instancia global
 supabase_service = SupabaseService()
