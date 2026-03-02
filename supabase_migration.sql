@@ -6,9 +6,9 @@
 -- 1. Tabla de resúmenes generados
 CREATE TABLE IF NOT EXISTS resumenes_generados (
     id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    explotacion_id  TEXT NOT NULL,
-    mes             INTEGER NOT NULL CHECK (mes BETWEEN 1 AND 12),
-    anio            INTEGER NOT NULL CHECK (anio BETWEEN 2000 AND 2100),
+    exploitationid  TEXT NOT NULL,
+    mes             TEXT NOT NULL,
+    anio            TEXT NOT NULL,
     resumen_json    JSONB NOT NULL DEFAULT '{}',
     fecha_generacion TIMESTAMPTZ NOT NULL DEFAULT now(),
     modelo_usado    TEXT NOT NULL,
@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS resumenes_generados (
 
 -- Índices para consultas frecuentes
 CREATE INDEX IF NOT EXISTS idx_resumenes_explotacion
-    ON resumenes_generados (explotacion_id);
+    ON resumenes_generados (exploitationid);
 
 CREATE INDEX IF NOT EXISTS idx_resumenes_periodo
-    ON resumenes_generados (explotacion_id, mes, anio);
+    ON resumenes_generados (exploitationid, mes, anio);
 
 -- 2. Tabla de logs IA
 CREATE TABLE IF NOT EXISTS logs_ia (
@@ -47,3 +47,17 @@ CREATE POLICY "Allow all for anon" ON resumenes_generados
 
 CREATE POLICY "Allow all for anon" ON logs_ia
     FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- Migración: renombrar explotacion_id → exploitationid, mes/anio a TEXT
+-- Ejecutar SOLO si la tabla ya existía con el esquema anterior.
+-- ============================================================
+-- ALTER TABLE resumenes_generados RENAME COLUMN explotacion_id TO exploitationid;
+-- ALTER TABLE resumenes_generados ALTER COLUMN mes TYPE TEXT USING mes::TEXT;
+-- ALTER TABLE resumenes_generados ALTER COLUMN anio TYPE TEXT USING anio::TEXT;
+-- ALTER TABLE resumenes_generados DROP CONSTRAINT IF EXISTS resumenes_generados_mes_check;
+-- ALTER TABLE resumenes_generados DROP CONSTRAINT IF EXISTS resumenes_generados_anio_check;
+-- DROP INDEX IF EXISTS idx_resumenes_explotacion;
+-- DROP INDEX IF EXISTS idx_resumenes_periodo;
+-- CREATE INDEX idx_resumenes_explotacion ON resumenes_generados (exploitationid);
+-- CREATE INDEX idx_resumenes_periodo ON resumenes_generados (exploitationid, mes, anio);
