@@ -52,12 +52,12 @@ CREATE POLICY "Allow all for anon" ON logs_ia
 -- Migración: renombrar explotacion_id → exploitationid, mes/anio a TEXT
 -- Ejecutar SOLO si la tabla ya existía con el esquema anterior.
 -- ============================================================
--- ALTER TABLE resumenes_generados RENAME COLUMN explotacion_id TO exploitationid;
--- ALTER TABLE resumenes_generados ALTER COLUMN mes TYPE TEXT USING mes::TEXT;
--- ALTER TABLE resumenes_generados ALTER COLUMN anio TYPE TEXT USING anio::TEXT;
--- ALTER TABLE resumenes_generados DROP CONSTRAINT IF EXISTS resumenes_generados_mes_check;
--- ALTER TABLE resumenes_generados DROP CONSTRAINT IF EXISTS resumenes_generados_anio_check;
--- DROP INDEX IF EXISTS idx_resumenes_explotacion;
--- DROP INDEX IF EXISTS idx_resumenes_periodo;
--- CREATE INDEX idx_resumenes_explotacion ON resumenes_generados (exploitationid);
--- CREATE INDEX idx_resumenes_periodo ON resumenes_generados (exploitationid, mes, anio);
+ALTER TABLE resumenes_generados RENAME COLUMN explotacion_id TO exploitationid;
+ALTER TABLE resumenes_generados ALTER COLUMN mes TYPE TEXT USING mes::TEXT;
+ALTER TABLE resumenes_generados ALTER COLUMN anio TYPE TEXT USING anio::TEXT;
+ALTER TABLE resumenes_generados DROP CONSTRAINT IF EXISTS resumenes_generados_mes_check;
+ALTER TABLE resumenes_generados DROP CONSTRAINT IF EXISTS resumenes_generados_anio_check;
+DROP INDEX IF EXISTS idx_resumenes_explotacion;
+DROP INDEX IF EXISTS idx_resumenes_periodo;
+CREATE INDEX idx_resumenes_explotacion ON resumenes_generados (exploitationid);
+CREATE INDEX idx_resumenes_periodo ON resumenes_generados (exploitationid, mes, anio);

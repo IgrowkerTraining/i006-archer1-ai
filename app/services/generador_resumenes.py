@@ -76,7 +76,7 @@ def _formatear_actividades(actividades: List[Dict]) -> str:
                 obs_desc = obs.get("description", "")
                 partes.append(f"    {j}. {tech_name}: {obs_desc}")
 
-        lineas.append("\n".join(partes))
+        lineas.append("\n\n".join(partes) if False else "\n".join(partes))
 
     return "\n\n".join(lineas)
 
@@ -219,10 +219,10 @@ async def generar_resumen_mensual(
     # 2. Llamar al servicio de IA
     resultado_ia = await ai_service.generar_respuesta(prompt)
 
-    respuesta_texto = resultado_ia["respuesta"]
-    latencia = resultado_ia["latencia"]
-    modelo = resultado_ia["modelo"]
-    error_ia = resultado_ia["error"]
+    respuesta_texto = resultado_ia.get("respuesta")
+    latencia = resultado_ia.get("latencia")
+    modelo = resultado_ia.get("modelo")
+    error_ia = resultado_ia.get("error")
 
     # 3. Registrar la petición/respuesta en Supabase
     try:
@@ -238,6 +238,8 @@ async def generar_resumen_mensual(
     # 4. Manejar error de la IA
     if error_ia:
         try:
+            # Loggueo explícito del intento de guardar error para visibilidad
+            logger.warning(f"IA devolvió error: {error_ia}. Intentando guardar resumen de error en BD.")
             supabase_service.guardar_resumen(
                 exploitationid=exploitationid,
                 mes=mes,
@@ -246,8 +248,9 @@ async def generar_resumen_mensual(
                 modelo=modelo,
                 exitoso=False,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            # Ahora no lo tragamos: lo registramos para debug
+            logger.warning(f"No se pudo guardar resumen de error en Supabase: {e}")
         return {
             "exitoso": False,
             "resumen": None,
@@ -262,16 +265,17 @@ async def generar_resumen_mensual(
 
     if not valido:
         try:
+            logger.warning(f"Validación fallida: {resultado_validacion}. Intentando guardar resumen de validación en BD.")
             supabase_service.guardar_resumen(
                 exploitationid=exploitationid,
                 mes=mes,
                 anio=anio,
-                resumen_json={"error": resultado_validacion, "respuesta_raw": respuesta_texto[:2000]},
+                resumen_json={"error": resultado_validacion, "respuesta_raw": (respuesta_texto or "")[:2000]},
                 modelo=modelo,
                 exitoso=False,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"No se pudo guardar resumen de validación en Supabase: {e}")
         return {
             "exitoso": False,
             "resumen": None,
@@ -287,6 +291,7 @@ async def generar_resumen_mensual(
     # 6. Guardar resumen exitoso
     resumen_id = None
     try:
+        logger.debug("Intentando guardar resumen exitoso en Supabase...")
         guardado = supabase_service.guardar_resumen(
             exploitationid=exploitationid,
             mes=mes,
@@ -295,7 +300,15 @@ async def generar_resumen_mensual(
             modelo=modelo,
             exitoso=True,
         )
-        resumen_id = guardado.get("id") if guardado else None
+        logger.debug(f"guardar_resumen devolvió: {guardado}")
+        if not guardado:
+            logger.error("guardar_resumen devolvió un valor vacío/falsy. El resumen puede no haberse insertado.")
+        else:
+            # intento obtener id de la respuesta de guardado
+            try:
+                resumen_id = guardado.get("id") if isinstance(guardado, dict) else None
+            except Exception:
+                resumen_id = None
     except Exception as e:
         logger.warning(f"No se pudo guardar resumen en Supabase: {e}")
 

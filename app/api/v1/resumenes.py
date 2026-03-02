@@ -98,8 +98,8 @@ async def obtener_resumenes(
         ResumenResponse(
             id=r.get("id"),
             exploitationid=r.get("exploitationid", exploitationid),
-            mes=r.get("mes", ""),
-            anio=r.get("anio", ""),
+            mes=str(r.get("mes", "")) if r.get("mes") is not None else "",
+            anio=str(r.get("anio", "")) if r.get("anio") is not None else "",
             resumen=r.get("resumen_json", {}),
             fecha_generacion=r.get("fecha_generacion", ""),
             modelo_usado=r.get("modelo_usado", ""),
