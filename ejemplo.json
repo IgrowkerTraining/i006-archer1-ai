@@ -1,0 +1,23 @@
+{
+    "exploitationid": "EXP-001",
+    "mes": "3",
+    "anio": "2026",
+    "activities": [
+        {
+            "activitytype": "Siembra",
+            "plot": "Parcela Norte",
+            "crop": "Trigo",
+            "date_day": "5",
+            "date_month": "3",
+            "date_year": "2026",
+            "responsible": "Juan Garcia",
+            "description": "Siembra de trigo en parcela norte",
+            "observations": [
+                {
+                    "technician": { "name": "Dr. Lopez" },
+                    "description": "Suelo en condiciones óptimas"
+                }
+            ]
+        }
+    ]
+}

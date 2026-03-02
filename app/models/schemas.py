@@ -60,44 +60,45 @@ class RootResponse(BaseModel):
 
 # ─── Resúmenes IA ────────────────────────────────────────────────────────────
 
-class ActividadInput(BaseModel):
+class TechnicianInfo(BaseModel):
+    """Datos del técnico que realiza la observación."""
+    name: str
+
+
+class ObservationInput(BaseModel):
+    """Observación de un técnico sobre una actividad."""
+    technician: TechnicianInfo
+    description: str
+
+
+class ActivityInput(BaseModel):
+    """Actividad agrícola registrada por el productor."""
     # Campos obligatorios
-    fecha: str
-    tipo_actividad: str
-    parcela: str
-    # Campos opcionales
-    hora: Optional[str] = None
-    cultivo: Optional[str] = None
-    variedad: Optional[str] = None
-    superficie: Optional[str] = None
-    producto: Optional[str] = None
-    numero_registro_producto: Optional[str] = None
-    dosis: Optional[str] = None
-    metodo_aplicacion: Optional[str] = None
-    condiciones_climaticas: Optional[str] = None
-    responsable: Optional[str] = None
-    dni_responsable: Optional[str] = None
-    maquinaria: Optional[str] = None
-    motivo: Optional[str] = None
-    observaciones_productor: Optional[str] = None
-    registro_confirmado_por: Optional[str] = None
+    activitytype: str
+    plot: str
+    crop: str
+    date_day: str
+    date_month: str
+    date_year: str
+    responsible: str
+    description: str
+    # Observaciones del técnico (puede estar vacía)
+    observations: List[ObservationInput] = []
 
 
 class ResumenRequest(BaseModel):
-    explotacion_id: str
-    mes: int = Field(..., ge=1, le=12)
-    anio: int = Field(..., ge=2000, le=2100)
-    nombre_explotacion: str
-    titular: str
-    tecnico: Optional[str] = None
-    actividades: List[ActividadInput] = []
+    """Request del backend principal para generar un resumen mensual."""
+    exploitationid: str
+    mes: str
+    anio: str
+    activities: List[ActivityInput] = []
 
 
 class ResumenResponse(BaseModel):
     id: Optional[str] = None
-    explotacion_id: str
-    mes: int
-    anio: int
+    exploitationid: str
+    mes: str
+    anio: str
     resumen: Union[str, Dict]
     fecha_generacion: str
     modelo_usado: str

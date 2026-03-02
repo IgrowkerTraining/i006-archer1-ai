@@ -1,6 +1,6 @@
 """Generador de resúmenes mensuales de actividades agrícolas."""
 
-from typing import List, Dict, Optional
+from typing import List, Dict
 from datetime import datetime
 
 from app.services.ai_service import ai_service
@@ -18,16 +18,32 @@ MESES_ES = {
 }
 
 
+def _componer_fecha(act: Dict) -> str:
+    """Compone una fecha ordenable (YYYY-MM-DD) a partir de date_year, date_month, date_day."""
+    year = str(act.get("date_year", "0000")).zfill(4)
+    month = str(act.get("date_month", "00")).zfill(2)
+    day = str(act.get("date_day", "00")).zfill(2)
+    return f"{year}-{month}-{day}"
+
+
+def _fecha_legible(act: Dict) -> str:
+    """Devuelve la fecha en formato legible: DD/MM/YYYY."""
+    day = str(act.get("date_day", "?"))
+    month = str(act.get("date_month", "?"))
+    year = str(act.get("date_year", "?"))
+    return f"{day}/{month}/{year}"
+
+
 def _formatear_actividades(actividades: List[Dict]) -> str:
     """Formatea la lista de actividades en una cadena legible y cronológica."""
     if not actividades:
         return "No se registraron actividades en este período."
 
-    # Ordenar por fecha si está disponible
+    # Ordenar por fecha compuesta
     try:
         actividades_sorted = sorted(
             actividades,
-            key=lambda a: a.get("fecha", "0000-00-00"),
+            key=lambda a: _componer_fecha(a),
         )
     except Exception:
         actividades_sorted = actividades
@@ -36,99 +52,97 @@ def _formatear_actividades(actividades: List[Dict]) -> str:
     for i, act in enumerate(actividades_sorted, 1):
         partes = [f"Actividad {i}:"]
 
-        if act.get("fecha"):
-            partes.append(f"  Fecha: {act['fecha']}")
-        if act.get("hora"):
-            partes.append(f"  Hora: {act['hora']}")
-        if act.get("tipo_actividad"):
-            partes.append(f"  Tipo: {act['tipo_actividad']}")
-        if act.get("parcela"):
-            partes.append(f"  Parcela: {act['parcela']}")
-        if act.get("cultivo"):
-            partes.append(f"  Cultivo: {act['cultivo']}")
-        if act.get("variedad"):
-            partes.append(f"  Variedad: {act['variedad']}")
-        if act.get("superficie"):
-            partes.append(f"  Superficie: {act['superficie']}")
-        if act.get("producto"):
-            partes.append(f"  Producto: {act['producto']}")
-        if act.get("numero_registro_producto"):
-            partes.append(f"  Nº registro producto: {act['numero_registro_producto']}")
-        if act.get("dosis"):
-            partes.append(f"  Dosis: {act['dosis']}")
-        if act.get("metodo_aplicacion"):
-            partes.append(f"  Método de aplicación: {act['metodo_aplicacion']}")
-        if act.get("condiciones"):
-            partes.append(f"  Condiciones: {act['condiciones']}")
-        if act.get("responsable"):
-            partes.append(f"  Responsable: {act['responsable']}")
-        if act.get("dni_responsable"):
-            partes.append(f"  DNI/NIE responsable: {act['dni_responsable']}")
-        if act.get("maquinaria"):
-            partes.append(f"  Maquinaria: {act['maquinaria']}")
-        if act.get("motivo"):
-            partes.append(f"  Motivo: {act['motivo']}")
-        if act.get("observaciones_productor"):
-            partes.append(f"  Observaciones del productor: {act['observaciones_productor']}")
-        if act.get("registro_confirmado_por"):
-            partes.append(f"  Registro confirmado por: {act['registro_confirmado_por']}")
+        fecha = _fecha_legible(act)
+        partes.append(f"  Fecha: {fecha}")
+
+        if act.get("activitytype"):
+            partes.append(f"  Tipo: {act['activitytype']}")
+        if act.get("plot"):
+            partes.append(f"  Parcela: {act['plot']}")
+        if act.get("crop"):
+            partes.append(f"  Cultivo: {act['crop']}")
+        if act.get("responsible"):
+            partes.append(f"  Responsable: {act['responsible']}")
+        if act.get("description"):
+            partes.append(f"  Descripción: {act['description']}")
+
+        # Observaciones de técnicos
+        observations = act.get("observations", [])
+        if observations:
+            partes.append("  Observaciones técnicas:")
+            for j, obs in enumerate(observations, 1):
+                technician = obs.get("technician", {})
+                tech_name = technician.get("name", "Técnico no identificado")
+                obs_desc = obs.get("description", "")
+                partes.append(f"    {j}. {tech_name}: {obs_desc}")
 
         lineas.append("\n".join(partes))
 
-    return "\n".join(lineas)
+    return "\n\n".join(lineas)
 
 
 def _extraer_observaciones(actividades: List[Dict]) -> str:
-    """Extrae observaciones técnicas de las actividades."""
-    obs = []
+    """Extrae todas las observaciones técnicas de las actividades."""
+    obs_list = []
     for act in actividades:
-        observacion = act.get("observacion_tecnica") or act.get("observaciones_tecnico")
-        if observacion:
-            fecha = act.get("fecha_observacion") or act.get("fecha", "sin fecha")
-            tecnico_obs = act.get("tecnico_observacion") or "técnico no identificado"
-            obs.append(f"- [{fecha}] {tecnico_obs}: {observacion}")
+        fecha = _fecha_legible(act)
+        observations = act.get("observations", [])
+        for obs in observations:
+            technician = obs.get("technician", {})
+            tech_name = technician.get("name", "Técnico no identificado")
+            obs_desc = obs.get("description", "")
+            if obs_desc:
+                obs_list.append(f"- [{fecha}] {tech_name}: {obs_desc}")
 
-        obs_productor = act.get("observaciones_productor")
-        if obs_productor:
-            fecha = act.get("fecha", "sin fecha")
-            obs.append(f"- [{fecha}] Observación del productor: {obs_productor}")
+    return "\n".join(obs_list) if obs_list else "Sin observaciones técnicas registradas en el período."
 
-    return "\n".join(obs) if obs else "Sin observaciones técnicas registradas en el período."
+
+def _extraer_tecnicos(actividades: List[Dict]) -> str:
+    """Extrae nombres únicos de técnicos desde las observaciones de las actividades."""
+    tecnicos = set()
+    for act in actividades:
+        for obs in act.get("observations", []):
+            technician = obs.get("technician", {})
+            name = technician.get("name")
+            if name:
+                tecnicos.add(name)
+    return ", ".join(sorted(tecnicos)) if tecnicos else "No asignado"
 
 
 def construir_prompt(
-    explotacion_id: str,
-    mes: int,
-    anio: int,
+    exploitationid: str,
+    mes: str,
+    anio: str,
     actividades: List[Dict],
-    nombre_explotacion: str = "",
-    titular: str = "",
-    tecnico: Optional[str] = None,
 ) -> str:
     """Construye el prompt para la generación del resumen."""
-    nombre_mes = MESES_ES.get(mes, str(mes))
+    # Convertir mes a nombre en español
+    try:
+        mes_int = int(mes)
+        nombre_mes = MESES_ES.get(mes_int, mes)
+    except (ValueError, TypeError):
+        nombre_mes = mes
+
     actividades_fmt = _formatear_actividades(actividades)
     observaciones = _extraer_observaciones(actividades)
-
-    # Determinar primer y último día del mes
     total = len(actividades)
 
     # Extraer responsables únicos
     responsables = set()
     for act in actividades:
-        if act.get("responsable"):
-            responsables.add(act["responsable"])
-    responsables_str = ", ".join(responsables) if responsables else "No identificado"
+        if act.get("responsible"):
+            responsables.add(act["responsible"])
+    responsables_str = ", ".join(sorted(responsables)) if responsables else "No identificado"
 
-    tecnico_str = tecnico if tecnico else "No asignado"
+    # Extraer técnicos desde observaciones
+    tecnico_str = _extraer_tecnicos(actividades)
 
     prompt = f"""Eres un asistente especializado en agricultura que genera informes descriptivos mensuales de auditoría.
 
 DATOS DEL PERÍODO:
-- Explotación: {nombre_explotacion or explotacion_id}
-- Titular: {titular or 'No especificado'}
+- Explotación (ID): {exploitationid}
 - Responsable(s) operativo(s): {responsables_str}
-- Técnico asesor: {tecnico_str}
+- Técnico(s) asesor(es): {tecnico_str}
 - Período analizado: 1 al último día de {nombre_mes} de {anio}
 - Fecha de generación: {datetime.now().strftime('%d de %B de %Y')}
 - Origen de datos: Registros operativos ingresados por el productor en el sistema
@@ -144,10 +158,9 @@ INSTRUCCIONES:
 Genera un resumen descriptivo narrativo en texto plano (NO en JSON) siguiendo este formato exacto:
 
 1. ENCABEZADO con los datos de la explotación:
-   - Explotación: [nombre]
-   - Titular: [nombre]
+   - Explotación (ID): [id]
    - Responsable operativo: [nombre(s)]
-   - Técnico asesor: [nombre]
+   - Técnico(s) asesor(es): [nombre(s)]
    - Período analizado: 1 al [último día] de [mes] de [año]
    - Fecha de generación: [fecha actual]
    - Origen de datos: Registros operativos ingresados por el productor en el sistema
@@ -155,10 +168,10 @@ Genera un resumen descriptivo narrativo en texto plano (NO en JSON) siguiendo es
 2. CUERPO NARRATIVO con párrafos descriptivos que:
    - Mencionen el volumen total de actividades del período
    - Describan la secuencia cronológica de las principales labores realizadas
-   - Identifiquen las parcelas, cultivos y superficies involucradas
-   - Destaquen las aplicaciones fitosanitarias (producto, dosis, método, responsable)
+   - Identifiquen las parcelas y cultivos involucrados
+   - Destaquen los detalles relevantes de cada actividad (tipo, responsable, descripción)
    - Mencionen labores previas registradas y la secuencia temporal
-   - Indiquen si el técnico asesor dejó observaciones y cuándo
+   - Indiquen si los técnicos asesores dejaron observaciones y cuándo
    - Sean objetivos, descriptivos y NO prescriptivos
 
 3. CIERRE con la frase:
@@ -179,34 +192,28 @@ REGLAS ESTRICTAS:
 
 
 async def generar_resumen_mensual(
-    explotacion_id: str,
-    mes: int,
-    anio: int,
+    exploitationid: str,
+    mes: str,
+    anio: str,
     actividades: List[Dict],
-    nombre_explotacion: str = "",
-    titular: str = "",
-    tecnico: Optional[str] = None,
 ) -> dict:
     """
     Genera un resumen mensual para una explotación dada.
 
-        Devuelve un dict con claves:
-            - exitoso (bool)
-            - resumen (str | None)  — texto narrativo
-            - error (str | None)
-            - modelo (str)
-            - latencia (float)
-            - id (str | None)
-        """
+    Devuelve un dict con claves:
+        - exitoso (bool)
+        - resumen (str | None)  — texto narrativo
+        - error (str | None)
+        - modelo (str)
+        - latencia (float)
+        - id (str | None)
+    """
     # 1. Construir el prompt
     prompt = construir_prompt(
-        explotacion_id=explotacion_id,
+        exploitationid=exploitationid,
         mes=mes,
         anio=anio,
         actividades=actividades,
-        nombre_explotacion=nombre_explotacion,
-        titular=titular,
-        tecnico=tecnico,
     )
 
     # 2. Llamar al servicio de IA
@@ -232,7 +239,7 @@ async def generar_resumen_mensual(
     if error_ia:
         try:
             supabase_service.guardar_resumen(
-                explotacion_id=explotacion_id,
+                exploitationid=exploitationid,
                 mes=mes,
                 anio=anio,
                 resumen_json={"error": error_ia},
@@ -256,7 +263,7 @@ async def generar_resumen_mensual(
     if not valido:
         try:
             supabase_service.guardar_resumen(
-                explotacion_id=explotacion_id,
+                exploitationid=exploitationid,
                 mes=mes,
                 anio=anio,
                 resumen_json={"error": resultado_validacion, "respuesta_raw": respuesta_texto[:2000]},
@@ -281,7 +288,7 @@ async def generar_resumen_mensual(
     resumen_id = None
     try:
         guardado = supabase_service.guardar_resumen(
-            explotacion_id=explotacion_id,
+            exploitationid=exploitationid,
             mes=mes,
             anio=anio,
             resumen_json={"resumen_texto": texto_limpio},
@@ -293,7 +300,7 @@ async def generar_resumen_mensual(
         logger.warning(f"No se pudo guardar resumen en Supabase: {e}")
 
     logger.info(
-        f"Resumen generado exitosamente — explotacion={explotacion_id} "
+        f"Resumen generado exitosamente — exploitationid={exploitationid} "
         f"periodo={mes}/{anio} modelo={modelo} latencia={latencia:.2f}s"
     )
 

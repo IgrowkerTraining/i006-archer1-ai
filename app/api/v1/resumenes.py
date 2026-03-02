@@ -22,26 +22,24 @@ router = APIRouter(prefix="/ia", tags=["ia-resumenes"])
 async def crear_resumen_mensual(request: ResumenRequest):
     """
     Generar un resumen descriptivo mensual a partir de actividades agrícolas.
-Recibe datos de la explotación + lista de actividades, llama al AI de OpenRouter, valida la respuesta, la almacena en Supabase y devuelve el resultado.
+    Recibe datos de la explotación + lista de actividades, llama al AI de
+    OpenRouter, valida la respuesta, la almacena en Supabase y devuelve el resultado.
     """
     logger.info(
-        f"POST /ia/resumen-mensual — explotacion={request.explotacion_id} "
+        f"POST /ia/resumen-mensual — exploitationid={request.exploitationid} "
         f"periodo={request.mes}/{request.anio} "
-        f"actividades={len(request.actividades)}"
+        f"actividades={len(request.activities)}"
     )
 
     # Convertir modelos Pydantic a diccionarios para el generador
-    actividades_dict = [act.model_dump(exclude_none=True) for act in request.actividades]
+    actividades_dict = [act.model_dump() for act in request.activities]
 
     try:
         resultado = await generar_resumen_mensual(
-            explotacion_id=request.explotacion_id,
+            exploitationid=request.exploitationid,
             mes=request.mes,
             anio=request.anio,
             actividades=actividades_dict,
-            nombre_explotacion=request.nombre_explotacion,
-            titular=request.titular,
-            tecnico=request.tecnico,
         )
     except Exception as e:
         logger.error(f"Error generando resumen: {e}")
@@ -49,10 +47,9 @@ Recibe datos de la explotación + lista de actividades, llama al AI de OpenRoute
 
     if not resultado["exitoso"]:
         logger.warning(f"Resumen no exitoso: {resultado['error']}")
-        # Devolver igualmente una respuesta con exitoso=False para que el llamante lo sepa
         return ResumenResponse(
             id=None,
-            explotacion_id=request.explotacion_id,
+            exploitationid=request.exploitationid,
             mes=request.mes,
             anio=request.anio,
             resumen={"error": resultado["error"]},
@@ -63,7 +60,7 @@ Recibe datos de la explotación + lista de actividades, llama al AI de OpenRoute
 
     return ResumenResponse(
         id=resultado.get("id"),
-        explotacion_id=request.explotacion_id,
+        exploitationid=request.exploitationid,
         mes=request.mes,
         anio=request.anio,
         resumen=resultado["resumen"],
@@ -73,23 +70,23 @@ Recibe datos de la explotación + lista de actividades, llama al AI de OpenRoute
     )
 
 
-@router.get("/resumenes/{explotacion_id}", response_model=ResumenListResponse)
+@router.get("/resumenes/{exploitationid}", response_model=ResumenListResponse)
 async def obtener_resumenes(
-    explotacion_id: str,
-    mes: Optional[int] = Query(default=None, ge=1, le=12, description="Filtrar por mes"),
-    anio: Optional[int] = Query(default=None, ge=2000, le=2100, description="Filtrar por año"),
+    exploitationid: str,
+    mes: Optional[str] = Query(default=None, description="Filtrar por mes"),
+    anio: Optional[str] = Query(default=None, description="Filtrar por año"),
 ):
     """
     Recuperar resúmenes almacenados para una explotación dada.
-Opcionalmente filtrar por mes y/o año.
+    Opcionalmente filtrar por mes y/o año.
     """
     logger.info(
-        f"GET /ia/resumenes/{explotacion_id} — mes={mes}, anio={anio}"
+        f"GET /ia/resumenes/{exploitationid} — mes={mes}, anio={anio}"
     )
 
     try:
         datos = supabase_service.obtener_resumenes(
-            explotacion_id=explotacion_id,
+            exploitationid=exploitationid,
             mes=mes,
             anio=anio,
         )
@@ -100,9 +97,9 @@ Opcionalmente filtrar por mes y/o año.
     resumenes = [
         ResumenResponse(
             id=r.get("id"),
-            explotacion_id=r.get("explotacion_id", explotacion_id),
-            mes=r.get("mes", 0),
-            anio=r.get("anio", 0),
+            exploitationid=r.get("exploitationid", exploitationid),
+            mes=r.get("mes", ""),
+            anio=r.get("anio", ""),
             resumen=r.get("resumen_json", {}),
             fecha_generacion=r.get("fecha_generacion", ""),
             modelo_usado=r.get("modelo_usado", ""),

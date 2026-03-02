@@ -36,16 +36,16 @@ class SupabaseService:
 
     def guardar_resumen(
         self,
-        explotacion_id: str,
-        mes: int,
-        anio: int,
+        exploitationid: str,
+        mes: str,
+        anio: str,
         resumen_json: dict,
         modelo: str,
         exitoso: bool,
     ) -> dict:
         """Guarda un resumen generado en la tabla resumenes_generados."""
         payload = {
-            "explotacion_id": explotacion_id,
+            "exploitationid": exploitationid,
             "mes": mes,
             "anio": anio,
             "resumen_json": resumen_json,
@@ -59,7 +59,7 @@ class SupabaseService:
                 .execute()
             )
             logger.info(
-                f"Resumen guardado para explotacion={explotacion_id} "
+                f"Resumen guardado para exploitationid={exploitationid} "
                 f"{mes}/{anio} exitoso={exitoso}"
             )
             return result.data[0] if result.data else payload
@@ -69,16 +69,16 @@ class SupabaseService:
 
     def obtener_resumenes(
         self,
-        explotacion_id: str,
-        mes: Optional[int] = None,
-        anio: Optional[int] = None,
+        exploitationid: str,
+        mes: Optional[str] = None,
+        anio: Optional[str] = None,
     ) -> list[dict]:
         """Obtiene resúmenes para una explotación dada, opcionalmente filtrados por mes y año."""
         try:
             query = (
                 self.client.table("resumenes_generados")
                 .select("*")
-                .eq("explotacion_id", explotacion_id)
+                .eq("exploitationid", exploitationid)
                 .order("fecha_generacion", desc=True)
             )
             if mes is not None:
@@ -89,7 +89,7 @@ class SupabaseService:
             result = query.execute()
             logger.info(
                 f"Obtenidos {len(result.data)} resúmenes para "
-                f"explotacion={explotacion_id}"
+                f"exploitationid={exploitationid}"
             )
             return result.data
         except Exception as e:
