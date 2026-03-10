@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     
     app_name: str = "FastAPI AI Template"
     app_version: str = "1.0.0"
-    debug: bool = True
+    debug: bool = False
     
     # OpenRouter Configuration
     openrouter_api_key: str

@@ -312,6 +312,35 @@ curl http://localhost:8000/api/v1/chat/models
 
 ## 🚀 Despliegue en Producción
 
+### Deploy en Render (Gratis)
+
+[Render](https://render.com) ofrece un tier gratuito con soporte Docker, SSL automático y auto-deploy desde GitHub.
+
+#### Pasos
+
+1. **Subí el repo a GitHub** (si aún no lo hiciste).
+2. **Creá una cuenta en [render.com](https://render.com)** (no pide tarjeta de crédito).
+3. **New → Web Service → Connect repository** — seleccioná el repo.
+4. Render detecta el `Dockerfile` y el `render.yaml` automáticamente.
+5. **Configurá las variables de entorno** en el dashboard de Render:
+   - `OPENROUTER_API_KEY` (obligatoria)
+   - `SUPABASE_URL` (obligatoria para resúmenes)
+   - `SUPABASE_ANON_KEY` (obligatoria para resúmenes)
+6. Click en **Deploy** — Render construye la imagen Docker y levanta el servicio.
+7. Tu API queda disponible en `https://archer-ai.onrender.com` (o el nombre que elijas).
+
+> **Nota:** El tier gratuito de Render duerme el servicio tras 15 min de inactividad. El primer request después tarda ~30s en despertar.
+
+#### Variables de entorno requeridas en producción
+
+| Variable | Obligatoria | Descripción |
+|----------|-------------|-------------|
+| `OPENROUTER_API_KEY` | Sí | API key de OpenRouter |
+| `SUPABASE_URL` | Sí (para resúmenes) | URL del proyecto Supabase |
+| `SUPABASE_ANON_KEY` | Sí (para resúmenes) | Anon key de Supabase |
+| `PORT` | Auto | Inyectada por Render automáticamente |
+| `DEBUG` | No | Usar `false` en producción |
+
 ### Variables de Entorno en Producción
 
 Asegúrate de configurar estas variables en tu entorno de producción:

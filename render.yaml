@@ -1,0 +1,29 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Push this file to the repo root and Render auto-detects it.
+
+services:
+  - type: web
+    name: archer-ai
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: DEFAULT_AI_MODEL
+        value: stepfun/step-3.5-flash:free
+      - key: AI_REQUEST_TIMEOUT
+        value: "30.0"
+      - key: DEBUG
+        value: "false"
+      - key: APP_NAME
+        value: Archer AI
+      - key: LOG_LEVEL
+        value: INFO
