@@ -17,6 +17,8 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false          # secret — set in Render dashboard
       - key: DEFAULT_AI_MODEL
         value: stepfun/step-3.5-flash:free
       - key: AI_REQUEST_TIMEOUT

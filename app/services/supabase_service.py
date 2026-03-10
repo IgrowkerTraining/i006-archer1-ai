@@ -20,16 +20,24 @@ class SupabaseService:
     def client(self) -> Client:
         """Inicialización perezosa del cliente de Supabase."""
         if self._client is None:
-            if not settings.supabase_url or not settings.supabase_anon_key:
+            if not settings.supabase_url:
                 raise RuntimeError(
                     "Supabase no configurado. "
-                    "Definir SUPABASE_URL y SUPABASE_ANON_KEY en .env"
+                    "Definir SUPABASE_URL en .env"
+                )
+            # Preferir service_role key (bypasea RLS) sobre anon key
+            key = settings.supabase_service_role_key or settings.supabase_anon_key
+            if not key:
+                raise RuntimeError(
+                    "Supabase key no configurada. "
+                    "Definir SUPABASE_SERVICE_ROLE_KEY o SUPABASE_ANON_KEY en .env"
                 )
             self._client = create_client(
                 settings.supabase_url,
-                settings.supabase_anon_key,
+                key,
             )
-            logger.info("Supabase client initialized")
+            role = "service_role" if settings.supabase_service_role_key else "anon"
+            logger.info(f"Supabase client initialized (role={role})")
         return self._client
 
     # ── Resúmenes generados ───────────────────────────────────────────
