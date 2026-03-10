@@ -1,6 +1,7 @@
 """Endpoints para generación y consulta de resúmenes IA."""
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from typing import Optional
 from datetime import datetime
 
@@ -112,3 +113,49 @@ async def obtener_resumenes(
         resumenes=resumenes,
         total=len(resumenes),
     )
+
+
+@router.get(
+    "/resumenes/{exploitationid}/texto",
+    response_class=PlainTextResponse,
+    summary="Obtener resumen como texto plano",
+)
+async def obtener_resumen_texto(
+    exploitationid: str,
+    mes: Optional[str] = Query(default=None, description="Filtrar por mes"),
+    anio: Optional[str] = Query(default=None, description="Filtrar por año"),
+):
+    """
+    Devuelve únicamente el contenido narrativo del resumen (resumen_texto)
+    como texto plano, sin envoltorio JSON.
+    """
+    logger.info(
+        f"GET /ia/resumenes/{exploitationid}/texto — mes={mes}, anio={anio}"
+    )
+
+    try:
+        datos = supabase_service.obtener_resumenes(
+            exploitationid=exploitationid,
+            mes=mes,
+            anio=anio,
+        )
+    except Exception as e:
+        logger.error(f"Error consultando resúmenes: {e}")
+        raise HTTPException(status_code=500, detail=f"Error consultando BD: {str(e)}")
+
+    if not datos:
+        raise HTTPException(
+            status_code=404,
+            detail="No se encontraron resúmenes para los filtros indicados.",
+        )
+
+    resumen_json = datos[0].get("resumen_json", {})
+    texto = resumen_json.get("resumen_texto", "") if isinstance(resumen_json, dict) else ""
+
+    if not texto:
+        raise HTTPException(
+            status_code=404,
+            detail="El resumen existe pero no contiene texto narrativo.",
+        )
+
+    return PlainTextResponse(content=texto, media_type="text/plain; charset=utf-8")
