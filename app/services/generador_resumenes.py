@@ -27,10 +27,10 @@ def _componer_fecha(act: Dict) -> str:
 
 
 def _fecha_legible(act: Dict) -> str:
-    """Devuelve la fecha en formato legible: DD/MM/YYYY."""
-    day = str(act.get("date_day", "?"))
-    month = str(act.get("date_month", "?"))
-    year = str(act.get("date_year", "?"))
+    """Devuelve la fecha en formato legible: DD/MM/YYYY (con ceros si faltan)."""
+    day = str(act.get("date_day", "?")).zfill(2)
+    month = str(act.get("date_month", "?")).zfill(2)
+    year = str(act.get("date_year", "?")).zfill(4)
     return f"{day}/{month}/{year}"
 
 
@@ -51,7 +51,6 @@ def _formatear_actividades(actividades: List[Dict]) -> str:
     lineas = []
     for i, act in enumerate(actividades_sorted, 1):
         partes = [f"Actividad {i}:"]
-
         fecha = _fecha_legible(act)
         partes.append(f"  Fecha: {fecha}")
 
@@ -83,6 +82,7 @@ def _formatear_actividades(actividades: List[Dict]) -> str:
 
 def _extraer_observaciones(actividades: List[Dict]) -> str:
     """Extrae todas las observaciones técnicas de las actividades."""
+    actividades = actividades or []
     obs_list = []
     for act in actividades:
         fecha = _fecha_legible(act)
@@ -99,6 +99,7 @@ def _extraer_observaciones(actividades: List[Dict]) -> str:
 
 def _extraer_tecnicos(actividades: List[Dict]) -> str:
     """Extrae nombres únicos de técnicos desde las observaciones de las actividades."""
+    actividades = actividades or []
     tecnicos = set()
     for act in actividades:
         for obs in act.get("observations", []):
@@ -116,7 +117,9 @@ def construir_prompt(
     actividades: List[Dict],
 ) -> str:
     """Construye el prompt para la generación del resumen."""
-    # Convertir mes a nombre en español
+    actividades = actividades or []
+
+    # Convertir nombre del mes a español
     try:
         mes_int = int(mes)
         nombre_mes = MESES_ES.get(mes_int, mes)
@@ -136,6 +139,10 @@ def construir_prompt(
 
     # Extraer técnicos desde observaciones
     tecnico_str = _extraer_tecnicos(actividades)
+
+    # Fecha de generación en español usando MESES_ES
+    ahora = datetime.now()
+    fecha_generacion = f"{ahora.day} de {MESES_ES.get(ahora.month, ahora.strftime('%B'))} de {ahora.year}"
 
     prompt = f"""Eres un asistente especializado en agricultura que genera informes descriptivos mensuales de auditoría.
 
@@ -208,6 +215,14 @@ async def generar_resumen_mensual(
         - latencia (float)
         - id (str | None)
     """
+    actividades = actividades or []
+
+    # Validación mínima de parámetros
+    if not exploitationid:
+        logger.warning("generar_resumen_mensual: exploitationid vacío")
+    if not mes or not anio:
+        logger.warning("generar_resumen_mensual: mes/anio faltantes")
+
     # 1. Construir el prompt
     prompt = construir_prompt(
         exploitationid=exploitationid,
@@ -216,13 +231,18 @@ async def generar_resumen_mensual(
         actividades=actividades,
     )
 
-    # 2. Llamar al servicio de IA
+    # Log previo a la llamada a la IA (útil para trazabilidad)
+    logger.info(
+        f"Generando resumen IA — exploitationid={exploitationid} periodo={mes}/{anio} actividades={len(actividades)}"
+    )
+
+    # 2. Llamar al servicio de IA (manejo seguro de la respuesta y errores)
     resultado_ia = await ai_service.generar_respuesta(prompt)
 
-    respuesta_texto = resultado_ia["respuesta"]
-    latencia = resultado_ia["latencia"]
-    modelo = resultado_ia["modelo"]
-    error_ia = resultado_ia["error"]
+    respuesta_texto = resultado_ia.get("respuesta") if isinstance(resultado_ia, dict) else None
+    latencia = resultado_ia.get("latencia", 0.0) if isinstance(resultado_ia, dict) else 0.0
+    modelo = resultado_ia.get("modelo", "unknown") if isinstance(resultado_ia, dict) else "unknown"
+    error_ia = resultado_ia.get("error") if isinstance(resultado_ia, dict) else None
 
     # 3. Registrar la petición/respuesta en Supabase
     try:
@@ -235,23 +255,24 @@ async def generar_resumen_mensual(
     except Exception as log_err:
         logger.warning(f"No se pudo guardar log IA: {log_err}")
 
-    # 4. Manejar error de la IA
-    if error_ia:
+    # 4. Manejar error de la IA o respuesta vacía
+    if error_ia or not respuesta_texto or not str(respuesta_texto.strip()):
+        motivo = error_ia or "Respuesta IA vacía o inválida"
         try:
             supabase_service.guardar_resumen(
                 exploitationid=exploitationid,
                 mes=mes,
                 anio=anio,
-                resumen_json={"error": error_ia},
+                resumen_json={"error": motivo},
                 modelo=modelo,
                 exitoso=False,
             )
-        except Exception:
-            pass
+        except Exception as save_err:
+            logger.warning(f"No se pudo guardar resumen de error en Supabase: {save_err}")
         return {
             "exitoso": False,
             "resumen": None,
-            "error": f"Error de IA: {error_ia}",
+            "error": f"Error de IA: {motivo}",
             "modelo": modelo,
             "latencia": latencia,
             "id": None,
