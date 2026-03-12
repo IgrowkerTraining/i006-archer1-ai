@@ -52,6 +52,10 @@ class SupabaseService:
         exitoso: bool,
     ) -> dict:
         """Guarda un resumen generado en la tabla resumenes_generados."""
+        # Normalizar mes/anio como strings; mes en formato 2 dígitos para consistencia.
+        mes = str(mes).strip().zfill(2)
+        anio = str(anio).strip()
+
         payload = {
             "exploitationid": exploitationid,
             "mes": mes,
@@ -89,17 +93,44 @@ class SupabaseService:
                 .eq("exploitationid", exploitationid)
                 .order("fecha_generacion", desc=True)
             )
-            if mes is not None:
-                query = query.eq("mes", mes)
-            if anio is not None:
-                query = query.eq("anio", anio)
 
             result = query.execute()
+            rows = result.data or []
+
+            # Si no se pasan filtros devolvemos todo (comportamiento anterior).
+            if mes is None and anio is None:
+                logger.info(
+                    f"Obtenidos {len(rows)} resúmenes para exploitationid={exploitationid}"
+                )
+                return rows
+
+            # Construir conjuntos de candidatas para mes/anio (tolerantes a "1" vs "01").
+            def _candidates(value: Optional[str]) -> Optional[set]:
+                if value is None:
+                    return None
+                s = str(value).strip()
+                cand = {s, s.lstrip("0") or "0", s.zfill(2)}
+                return {c for c in cand if c}
+
+            mes_cand = _candidates(mes)
+            anio_cand = _candidates(anio)
+
+            # Filtrar en Python (robusto ante formatos mixtos en DB).
+            def _row_matches(r: dict) -> bool:
+                if mes_cand is not None:
+                    if str(r.get("mes", "")).strip() not in mes_cand:
+                        return False
+                if anio_cand is not None:
+                    if str(r.get("anio", "")).strip() not in anio_cand:
+                        return False
+                return True
+
+            filtered = [r for r in rows if _row_matches(r)]
             logger.info(
-                f"Obtenidos {len(result.data)} resúmenes para "
-                f"exploitationid={exploitationid}"
+                f"Obtenidos {len(filtered)} resúmenes para exploitationid={exploitationid}"
             )
-            return result.data
+            return filtered
+
         except Exception as e:
             logger.error(f"Error obteniendo resúmenes de Supabase: {e}")
             raise
