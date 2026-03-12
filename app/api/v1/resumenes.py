@@ -19,6 +19,50 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/ia", tags=["ia-resumenes"])
 
 
+# Convertir y validar parámetros 'mes' y 'anio' recibidos por query.
+def _normalize_and_validate_period(mes: Optional[str], anio: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    # Normaliza y valida mes/anio manteniendo tipo string (DB usa TEXT).
+    
+    mes_norm: Optional[str] = None
+    anio_norm: Optional[str] = None
+
+    if mes is not None:
+        m = str(mes).strip()
+
+        if not m.isdigit():
+            raise HTTPException(
+                status_code=400,
+                detail="Parámetro 'mes' inválido: debe contener solo números."
+            )
+
+        if not (1 <= int(m) <= 12):
+            raise HTTPException(
+                status_code=400,
+                detail="Parámetro 'mes' fuera de rango (1-12)."
+            )
+
+        # Mantener formato consistente como string
+        mes_norm = m.zfill(2)
+
+    if anio is not None:
+        a = str(anio).strip()
+
+        if not a.isdigit():
+            raise HTTPException(
+                status_code=400,
+                detail="Parámetro 'anio' inválido: debe contener solo números."
+            )
+
+        if not (1900 <= int(a) <= 2100):
+            raise HTTPException(
+                status_code=400,
+                detail="Parámetro 'anio' fuera de rango razonable."
+            )
+
+        anio_norm = a
+
+    return mes_norm, anio_norm
+
 @router.post("/resumen-mensual", response_model=ResumenResponse)
 async def crear_resumen_mensual(request: ResumenRequest):
     """
@@ -26,9 +70,17 @@ async def crear_resumen_mensual(request: ResumenRequest):
     Recibe datos de la explotación + lista de actividades, llama al AI de
     OpenRouter, valida la respuesta, la almacena en Supabase y devuelve el resultado.
     """
+    # Defensive: aseguramos que los parámetros de periodo estén en formato normalizado
+    # (esto protege cuando el cliente envía "01" vs "1").
+    try:
+        mes_norm, anio_norm = _normalize_and_validate_period(request.mes, request.anio)
+    except HTTPException as e:
+        # Reenviamos 400 si el cliente mandó un mes/año inválido
+        raise e
+
     logger.info(
         f"POST /ia/resumen-mensual — exploitationid={request.exploitationid} "
-        f"periodo={request.mes}/{request.anio} "
+        f"periodo={mes_norm}/{anio_norm} "
         f"actividades={len(request.activities)}"
     )
 
@@ -36,10 +88,11 @@ async def crear_resumen_mensual(request: ResumenRequest):
     actividades_dict = [act.model_dump() for act in request.activities]
 
     try:
+        # Pasamos los valores normalizados al generador (evita inconsistencias)
         resultado = await generar_resumen_mensual(
             exploitationid=request.exploitationid,
-            mes=request.mes,
-            anio=request.anio,
+            mes=mes_norm,
+            anio=anio_norm,
             actividades=actividades_dict,
         )
     except Exception as e:
@@ -51,8 +104,8 @@ async def crear_resumen_mensual(request: ResumenRequest):
         return ResumenResponse(
             id=None,
             exploitationid=request.exploitationid,
-            mes=request.mes,
-            anio=request.anio,
+            mes=mes_norm,
+            anio=anio_norm,
             resumen={"error": resultado["error"]},
             fecha_generacion=datetime.now().isoformat(),
             modelo_usado=resultado["modelo"],
@@ -62,8 +115,8 @@ async def crear_resumen_mensual(request: ResumenRequest):
     return ResumenResponse(
         id=resultado.get("id"),
         exploitationid=request.exploitationid,
-        mes=request.mes,
-        anio=request.anio,
+        mes=mes_norm,
+        anio=anio_norm,
         resumen=resultado["resumen"],
         fecha_generacion=datetime.now().isoformat(),
         modelo_usado=resultado["modelo"],
@@ -80,16 +133,23 @@ async def obtener_resumenes(
     """
     Recuperar resúmenes almacenados para una explotación dada.
     Opcionalmente filtrar por mes y/o año.
+
+    NOTA: Se normalizan los params de query (ej: "01" -> "1") para evitar
+    falsos negativos en las consultas a la DB causados por formato distinto.
     """
+    # Normalizar y validar parámetros de entrada (defensive programming)
+    mes_norm, anio_norm = _normalize_and_validate_period(mes, anio)
+
     logger.info(
-        f"GET /ia/resumenes/{exploitationid} — mes={mes}, anio={anio}"
+        f"GET /ia/resumenes/{exploitationid} — mes={mes_norm}, anio={anio_norm}"
     )
 
     try:
+        # Pasamos los params normalizados al servicio de BD
         datos = supabase_service.obtener_resumenes(
             exploitationid=exploitationid,
-            mes=mes,
-            anio=anio,
+            mes=mes_norm,
+            anio=anio_norm,
         )
     except Exception as e:
         logger.error(f"Error consultando resúmenes: {e}")
@@ -129,15 +189,18 @@ async def obtener_resumen_texto(
     Devuelve únicamente el contenido narrativo del resumen (resumen_texto)
     como texto plano, sin envoltorio JSON.
     """
+    # Normalizar parámetros de entrada antes de consultar la BD
+    mes_norm, anio_norm = _normalize_and_validate_period(mes, anio)
+
     logger.info(
-        f"GET /ia/resumenes/{exploitationid}/texto — mes={mes}, anio={anio}"
+        f"GET /ia/resumenes/{exploitationid}/texto — mes={mes_norm}, anio={anio_norm}"
     )
 
     try:
         datos = supabase_service.obtener_resumenes(
             exploitationid=exploitationid,
-            mes=mes,
-            anio=anio,
+            mes=mes_norm,
+            anio=anio_norm,
         )
     except Exception as e:
         logger.error(f"Error consultando resúmenes: {e}")
